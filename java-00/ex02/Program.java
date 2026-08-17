@@ -2,6 +2,13 @@ import java.util.Scanner;
 
 class   Program
 {
+    static void terminate( Scanner scanner )
+    {
+        System.err.println("IllegalArgument");
+        scanner.close();
+        System.exit(-1);
+    }
+
     public static void  main( String[] args )
     {
         final Scanner   scanner = new Scanner(System.in);
@@ -14,32 +21,35 @@ class   Program
             long        sum = 0;
             boolean     prime = true;
 
-            System.out.print("-> ");
-            num = scanner.nextLong( );
-            if (num < 2)
+            try
             {
-                System.err.println("IllegalArgument");
-                scanner.close();
-                System.exit(-1);
-            }
-            if (num == 42)
-                break ;
-            while (num > 0)
-            {
-                sum += num % 10;
-                num /= 10;
-            }
-            while (iter < sum / 2)
-            {
-                if (sum % iter == 0)
-                {
-                    prime = false;
+                System.out.print("-> ");
+                num = scanner.nextLong( );
+                if (num < 2)
+                    terminate(scanner);
+                if (num == 42)
                     break ;
+                while (num > 0)
+                {
+                    sum += num % 10;
+                    num /= 10;
                 }
-                iter++;
+                while (iter < sum / 2)
+                {
+                    if (sum % iter == 0)
+                    {
+                        prime = false;
+                        break ;
+                    }
+                    iter++;
+                }
+                if (prime)
+                    requests++;
             }
-            if (prime)
-                requests++;
+            catch (Exception e)
+            {
+                terminate(scanner);
+            }
         }
         System.out.println( "Count of cofee-request - " + requests );
         scanner.close();

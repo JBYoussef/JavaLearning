@@ -2,6 +2,13 @@ import java.util.Scanner;
 
 class   Program
 {
+    static void terminate( Scanner scanner )
+    {
+        System.err.println("IllegalArgument");
+        scanner.close();
+        System.exit(-1);
+    }
+
     public static void  main( String[] args )
     {
         final Scanner   scanner = new Scanner(System.in);
@@ -10,25 +17,28 @@ class   Program
         int             steps = 0;
         boolean         prime = true;
 
-        System.out.print("-> ");
-        num = scanner.nextLong( );
-        if (num < 2)
+        try
         {
-            System.err.println("IllegalArgument");
-            scanner.close();
-            System.exit(-1);
-        }
-        while (iter < num / 2)
-        {
-            steps++;
-            if (num % iter == 0)
+            System.out.print("-> ");
+            num = scanner.nextLong( );
+            if (num < 2)
+                terminate(scanner);
+            while (iter < num / 2)
             {
-                prime = false;
-                break ;
+                steps++;
+                if (num % iter == 0)
+                {
+                    prime = false;
+                    break ;
+                }
+                iter++;
             }
-            iter++;
+            System.out.println( prime + " " + steps );
+            scanner.close();
         }
-        System.out.println( prime + " " + steps );
-        scanner.close();
+        catch (Exception e)
+        {
+            terminate(scanner);
+        }
     }
 }
