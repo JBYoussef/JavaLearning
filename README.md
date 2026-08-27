@@ -1,152 +1,136 @@
 # Piscine Java
 
-### From basic language constructs to a production-shaped money-transfer system
+**A solo Java project inspired by 42’s methodology**
 
-Sixteen days that grow a single domain — users, accounts and transfers — from in-memory collections all the way to a containerised Spring Boot service with authentication, optimistic locking, an immutable event store, cache invalidation and rate limiting.
-
-The same domain is first explored in SQL (see the companion **Ledger** piscine). By the time a concept appears in Java, the cadet has usually already solved the underlying problem once, where it is cheaper to get wrong.
+From basic language constructs to a production-shaped money-transfer system — one domain, sixteen progressive modules.
 
 ---
 
-## Domain spine
+## What this is
 
-Every major day works on the same business objects:
+This is a self-directed learning project that follows the pedagogical style of 42 (one persistent domain, progressive difficulty, concrete implementation before abstraction).
+
+It is **not** an official 42 piscine. It is a personal reconstruction of the structure and ideas of the Java curriculum, centred on a single money-transfer domain that is first explored in SQL (see the companion **Ledger** project) and then reimplemented in Java.
+
+The same business objects grow from in-memory collections all the way to a containerised Spring Boot service with authentication, optimistic locking, an immutable event store, cache invalidation and rate limiting.
+
+---
+
+## The domain spine
+
+Every major module works on the same business objects:
 
 - `User` (id, name, balance)
-- `Transaction` (UUID, sender, recipient, amount, debit/credit category)
+- `Transaction` (UUID, sender, recipient, amount, debit/credit)
 
-A transfer is stored as a debit/credit pair sharing the same identifier. The "unacknowledged transfer" problem (a transfer recorded for only one of the two users) appears first in Ledger Day 01 with `EXCEPT` and again in Java Day 01 with two `ArrayList`s.
+A transfer is stored as a debit/credit pair sharing the same identifier. The classic “unacknowledged transfer” problem (a transfer recorded for only one of the two users) is solved first in SQL with `EXCEPT` and later in Java by walking two collections.
 
 That spine is then extended:
 
-| Days | What is added |
-|------|----------------|
+| Modules | What is added |
+|---------|----------------|
 | 00–01 | Language fundamentals + domain models + collections |
 | 02–03 | Threads, concurrency primitives, ExecutorService |
-| 04–09 | I/O, sockets, wire protocols, chat |
-| 10–12 | Spring Boot, REST, JDBC/JPA |
+| 04–09 | I/O, sockets, wire protocols |
+| 10–12 | Spring Boot, REST, JDBC / JPA |
 | 13 | Migrations, indexes, locking, cursor pagination |
 | 14 | Password hashing, JWT, secure upload, Docker |
 | 15 | Ports & Adapters, immutable audit log, cache, metrics, rate limiting |
 
 ---
 
-## Day-by-day overview
+## Module overview
 
-### Day 00 — Management structures and arrays
-Basic language constructs under strict constraints (no user-defined classes except static helpers).
+### 00 — Language fundamentals
+Strict constraints (no user-defined classes except static helpers). Sum of digits, primality, stream processing until a sentinel, histograms, simple timetable.
 
-- Sum of digits of a six-digit number
-- Primality test with iteration count
-- Count of "coffee-request" numbers (digit-sum is prime) until sentinel 42
-- Student progress histogram (minimum grade per week) without arrays for storage
-- Character frequency histogram (top 10, scalable height)
-- Class timetable + attendance for September 2020
+### 01 — OOP & Collections
+Domain modelling under the single-responsibility principle. Custom lists, business-logic layer that can detect unacknowledged transfers, interactive menu.  
+Optional deepening: replace `double` with `BigDecimal` (scale 2, banker’s rounding) and measure accumulated error.
 
-### Day 01 — OOP / Collections
-Domain modelling under SOLID (especially single responsibility).
+### 02–03 — Threads
+From raw `Thread` / `Runnable` and a hand-rolled worker pool to `ExecutorService` + `CompletableFuture` pipelines (timeouts, fallbacks, `allOf`).
 
-- `User` and `Transaction` models with validation
-- Singleton ID generator
-- Custom list of users
-- Custom list of transactions (linked structure)
-- Business logic layer (`TransactionsService`) that can detect unacknowledged transfers
-- Interactive menu
+### 04–09 — I/O & Sockets
+File signatures (magic numbers), multi-threaded chat, JSON exchange, and a strict tag-value wire protocol with checksum validation.
 
-**Extension — Precision Matters:** replace `double` with `BigDecimal` (scale 2, `RoundingMode.HALF_EVEN`), reject values that ever passed through a `double` literal, document the accumulated gap after hundreds of thousands of transfers.
+### 10–12 — Spring Boot & Persistence
+The domain becomes an HTTP API. JDBC then JPA mapping of the same objects. Database-generated primary keys replace the earlier singleton ID generator.
 
-### Day 02–03 — Threads
-From raw `Thread` / `Runnable` to the standard library.
+### 13 — Advanced Persistence
+- Versioned migrations with Flyway (editing an already-applied migration must fail)
+- N+1 problem demonstrated and fixed with `@EntityGraph` / `JOIN FETCH`
+- `EXPLAIN ANALYZE` before and after a covering index
+- Optimistic (`@Version` + retry) vs pessimistic (`SELECT … FOR UPDATE`) locking under 100 concurrent debits
+- Cursor pagination vs `OFFSET` on a 200 k-row table
 
-- Producer-consumer file downloader with a fixed worker pool and shared queue
-- **Extension:** reimplement with `ExecutorService` + `CompletableFuture` pipelines (timeout, fallback, `allOf`)
+### 14 — Security & Containers
+- BCrypt password hashing (failed login never reveals whether the user existed)
+- JWT access + opaque refresh tokens
+- Secure file upload (magic-byte validation + path normalisation)
+- Multi-stage Dockerfile (JDK build → JRE runtime, non-root, healthcheck) + Compose waiting on Postgres readiness
 
-### Day 04–09 — I/O, Sockets, Chat
-Building the networking layer from the ground up.
-
-- File signatures (magic numbers)
-- Multi-threaded chat server
-- JSON message exchange
-- **Extension — Wire Protocol:** replace JSON with a strict tag-value protocol (SOH separators, checksum modulo 256). Server must reject malformed or checksum-invalid messages without crashing.
-
-### Day 10–12 — Spring Boot, REST, Persistence
-The domain becomes an HTTP API backed by a real database.
-
-- Spring Boot project structure
-- REST controllers for users and transfers
-- JDBC then JPA mapping of the same domain
-- Real primary keys generated by the database (retire the Day 01 singleton)
-
-### Day 13 — Advanced Persistence: Migrations, Indexes & Locking
-What happens after the first version of the schema ships.
-
-- **Migrations** with Flyway (`V1__schema_inicial.sql`, `V2__add_edited_at.sql`). Editing an already-applied migration must fail with a checksum mismatch.
-- **N+1 problem** demonstrated with lazy collections, then fixed with `@EntityGraph` / `JOIN FETCH`.
-- **Query planner:** seed 200 000 rows, show `Seq Scan`, add covering index `(room_id, sent_at DESC)`, show `Index Scan`. Document both plans.
-- **Locking:** implement `debit` both optimistically (`@Version` + retry) and pessimistically (`SELECT ... FOR UPDATE`). Fire 100 concurrent $1 debits against a $50 balance; both modes must finish with exactly 50 successes and balance 0.00. Count retries in the optimistic path.
-- **Cursor pagination:** `WHERE sent_at < :after ORDER BY sent_at DESC LIMIT :size` vs `OFFSET` page 5000 — measure the difference.
-
-### Day 14 — Security & Containers
-Nothing so far asked "who is calling this?".
-
-- **Password hashing** with `BCryptPasswordEncoder`. Failed login never reveals whether the user existed.
-- **JWT authentication** (15 min access + 7 day opaque refresh). Filter protects `/api/v1/transfers/**`.
-- **Secure upload:** reject files whose magic bytes do not match the Day 02 signature list; generate storage name yourself; reject path-traversal with `Path.normalize()`.
-- **Docker:** multi-stage Dockerfile (JDK+Maven build → JRE-only runtime, non-root, HEALTHCHECK) + `docker-compose` that waits for Postgres `pg_isready`.
-
-### Day 15 — Architecture, Audit & Observability
-Three closing questions of everything built since Day 00.
-
-- **Ports & Adapters:** reorganise into `domain` / `application` / `infrastructure`. Domain packages must not import Spring or JPA. Unit-test `TransactionsService` against a hand-written in-memory repository (no `@SpringBootTest`).
-- **Immutable Audit Log:** sealed hierarchy of events (`UserCreatedEvent`, `BalanceCreditedEvent`, `BalanceDebitedEvent`). `EventStore` only appends. `reconstituteBalanceAt(userId, instant)` folds history up to that point. Must agree with the running-balance window function from Ledger Day 06.
-- **Cache invalidation:** `@Cacheable("balances")` on the balance endpoint; `@CacheEvict` on every balance-changing operation (both sender and recipient).
-- **Structured logging & metrics:** request-scoped `requestId` in MDC; Micrometer Counter + Timer exposed at `/actuator/metrics`.
-- **Rate limiting:** in-memory token-bucket filter keyed by authenticated user id (from JWT `sub`), 10 req/min on transfers. Rejected requests never reach the service.
+### 15 — Architecture, Audit & Observability
+- Ports & Adapters layout (`domain` packages import neither Spring nor JPA)
+- Sealed event hierarchy + append-only store + `reconstituteBalanceAt(userId, instant)`
+- Cache invalidation on every balance-changing operation
+- Structured logging with request-scoped ID in MDC + Micrometer metrics
+- Token-bucket rate limiter keyed by authenticated user (not by IP)
 
 ---
 
-## Key design decisions the piscine forces you to feel
+## Design decisions the project forces you to feel
 
-1. **Client-side arithmetic is the Lost Update.** Writing `balance = balance - 20` is safe under `READ COMMITTED`; writing the literal computed from a stale read is not. That is exactly what every ORM `save(entity)` does — which is why Day 13 needs `@Version`.
-2. **One JVM is not a distributed system.** The in-memory rate limiter of Day 15 works until the API sits behind a load balancer. Ledger Module B is the fix.
-3. **The same question, two tools.** Running balance can be a window function or an event fold. Having built both makes the trade-off discussion real.
-4. **Events are never updated.** If a fact was wrong, a later event corrects it; the record of the mistake stays. That is the rule Ledger Day 03 already enforced with `status = 'REVERSED'`.
+1. **Client-side arithmetic is the Lost Update.**  
+   Writing `balance = balance - 20` is safe under `READ COMMITTED`; writing a literal computed from a stale read is not. That is exactly what most ORM `save(entity)` calls do — which is why optimistic locking appears.
 
----
+2. **One JVM is not a distributed system.**  
+   An in-memory rate limiter works until the service sits behind a load balancer. The Redis module in the Ledger project is the distributed counterpart.
 
-## Extensions
+3. **The same question, two tools.**  
+   A running balance can be a window function or an event fold. Having built both turns the trade-off discussion into something concrete.
 
-Three optional exercises that deepen earlier days without breaking their original scope:
-
-| Parent day | Extension | Focus |
-|------------|-----------|-------|
-| Day 01 | Precision Matters | `BigDecimal` vs `double`, banker's rounding, accumulation of error |
-| Day 03 | ExecutorService & CompletableFuture | Replace hand-rolled pool with standard library; pipeline composition |
-| Day 09 | Wire Protocol | Strict tag-value messages with checksum; reject on mismatch |
+4. **Events are never updated.**  
+   If a fact was wrong, a later event corrects it; the record of the mistake stays. The same rule is enforced in the SQL schema by using `status = 'REVERSED'` instead of `DELETE`.
 
 ---
 
-## Assessment model
+## Repository layout
 
-Training days are ungraded. Evaluation is peer review of the submitted exercises plus, where the curriculum requires it, a live defence of the design choices (especially locking strategy, event-store vs table, and the Ports & Adapters boundary).
+```
+├── day00/ … day15/
+├── extensions/
+│   ├── precision-bigdecimal/
+│   ├── executor-completablefuture/
+│   └── wire-protocol/
+└── docker/
+    ├── Dockerfile
+    └── docker-compose.yml
+```
 
----
-
-## Why this reads well on a résumé
-
-A thirty-second scan of the repository shows:
-
-- a domain a fintech interviewer recognises,
-- before/after `EXPLAIN ANALYZE` pairs next to the index that changed them,
-- a real migration history instead of a single `schema.sql`,
-- a written argument for optimistic vs pessimistic locking,
-- an event-sourced balance reconstitution that can be cross-checked against the SQL window function from Ledger,
-- a multi-stage Docker image that actually ships without the JDK.
-
-That is the same evidence a technical interview tries to extract in forty-five minutes, already sitting in the commit history.
+Each day contains the source, a short note on non-obvious choices, and (where relevant) before/after measurements.
 
 ---
 
-**Status:** In progress  
-**Companion piscine:** [Ledger (SQL / Data Engineering)](https://github.com/JBYoussef/ledger)  
-**Repository:** [github.com/JBYoussef/piscine-java](https://github.com/JBYoussef/piscine-java)
+## Tech stack
+
+- Java 21 (LTS)
+- Spring Boot, Spring Security, Spring Data JPA
+- Flyway
+- PostgreSQL
+- Docker / Docker Compose
+- JUnit / Mockito
+- Micrometer
+
+---
+
+## Status
+
+Personal / solo project — ongoing.
+
+Inspired by the teaching methodology of 42 School (progressive projects, one persistent domain, emphasis on understanding mechanisms rather than memorising frameworks). Not an official 42 curriculum item and not subject to any formal evaluation.
+
+---
+
+**Companion project:** [Ledger (SQL / Data Engineering)](https://github.com/JBYoussef/ledger)  
+**Author:** [José Bofengola](https://github.com/JBYoussef)
